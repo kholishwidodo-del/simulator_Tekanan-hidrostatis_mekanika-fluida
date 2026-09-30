@@ -102,7 +102,7 @@
                     <span class="text-xs font-semibold text-sky-400 uppercase tracking-wider">
                         <i class="fa-solid fa-eye"></i> Visualisasi Pancaran Air
                     </span>
-                    <span class="text-xs text-slate-400">Tekanan berbanding lurus dengan Kedalaman (h)</span>
+                    <span class="text-xs text-slate-400">Tekanan terbesar di lubang paling bawah memancarkan air paling jauh</span>
                 </div>
                 <div class="w-full h-[420px] relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
                     <canvas id="canvas-tab1" class="w-full h-full block"></canvas>
@@ -184,8 +184,8 @@
                 <div class="p-3 bg-sky-950/40 border border-sky-800/40 rounded-xl text-[11px] text-sky-200/90">
                     <p class="font-bold text-sky-400 mb-1"><i class="fa-solid fa-square-root-variable"></i> Persamaan Torricelli:</p>
                     <p>Tekanan Hidrostatis: P = ρ x g x h</p>
-                    <p>Jarak Pancaran Mendatar: x = 2 x √(h x y)</p>
-                    <p class="text-[10px] text-slate-400 mt-1">*h = kedalaman dari permukaan air, y = tinggi lubang dari dasar</p>
+                    <p>Kecepatan Keluar: v = √(2 x g x h)</p>
+                    <p class="text-[10px] text-slate-300 mt-1">*Makin dalam kedalaman (h), tekanan P makin besar, kecepatan keluar v makin tinggi, sehingga jarak pancaran x paling jauh di lubang bawah.</p>
                 </div>
             </div>
         </section>
@@ -659,18 +659,21 @@
 
             ctx.clearRect(0, 0, w, h);
 
-            // Skala visual
-            var originX = 120;
-            var groundY = h - 60;
-            var bottleWidth = 100;
-            var bottleHeight = 280; // setara 40 cm
-            var scaleY = bottleHeight / 40; // 1 cm = 7 px
+            // Skala visual & Posisi Meja Penyangga
+            var originX = 100;
+            var groundY = h - 40; // Lantai tempat tray penggaris
+            var standHeightPx = 90; // Ketinggian panggung/meja (setara 30 cm)
+            var standHeightCm = 30;
+            var tableY = groundY - standHeightPx;
 
-            var bottleTopY = groundY - bottleHeight;
+            var bottleWidth = 90;
+            var bottleHeight = 220; // setara 40 cm
+            var scaleY = bottleHeight / 40; // 1 cm = 5.5 px
+            var bottleTopY = tableY - bottleHeight;
 
-            // Gambar Tanah / Lantai
+            // Gambar Tanah / Lantai & Tray Penggaris
             ctx.fillStyle = "#1e293b";
-            ctx.fillRect(0, groundY, w, 60);
+            ctx.fillRect(0, groundY, w, 40);
             ctx.strokeStyle = "#475569";
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -678,18 +681,34 @@
             ctx.lineTo(w, groundY);
             ctx.stroke();
 
-            // Penggaris Jarak
+            // Gambar Meja Penyangga Botol
+            ctx.fillStyle = "#334155";
+            ctx.fillRect(originX - 15, tableY, bottleWidth + 30, 10); // Papan meja
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(originX + 10, tableY + 10, 12, standHeightPx - 10); // Kaki kiri
+            ctx.fillRect(originX + bottleWidth - 22, tableY + 10, 12, standHeightPx - 10); // Kaki kanan
+            ctx.strokeStyle = "#475569";
+            ctx.strokeRect(originX - 15, tableY, bottleWidth + 30, 10);
+
+            // Label Penyangga
+            ctx.fillStyle = "#94a3b8";
+            ctx.font = "10px Inter";
+            ctx.fillText("Meja Penyangga (30 cm)", originX - 12, tableY + 25);
+
+            // Penggaris Jarak di Lantai
             ctx.fillStyle = "#64748b";
             ctx.font = "10px Inter";
-            for (var r = 0; r < w - originX; r += 50) {
-                var rx = originX + bottleWidth + r;
-                if (rx < w - 20) {
+            var pixelsPerCm = scaleY * 0.7; // skala horizontal
+            for (var r = 0; r <= 80; r += 10) {
+                var rx = originX + bottleWidth + (r * pixelsPerCm);
+                if (rx < w - 15) {
                     ctx.beginPath();
                     ctx.moveTo(rx, groundY);
                     ctx.lineTo(rx, groundY + 8);
                     ctx.stroke();
-                    var distCm = Math.round(r / (scaleY * 0.8));
-                    ctx.fillText(distCm + "cm", rx - 10, groundY + 22);
+                    if (r % 20 === 0) {
+                        ctx.fillText(r + "cm", rx - 10, groundY + 20);
+                    }
                 }
             }
 
@@ -699,10 +718,10 @@
 
             // Isi Air dalam Botol
             var currentWaterPx = t1_waterLevel * scaleY;
-            var waterTopY = groundY - currentWaterPx;
+            var waterTopY = tableY - currentWaterPx;
 
             if (currentWaterPx > 0) {
-                var waterGrad = ctx.createLinearGradient(originX, waterTopY, originX + bottleWidth, groundY);
+                var waterGrad = ctx.createLinearGradient(originX, waterTopY, originX + bottleWidth, tableY);
                 waterGrad.addColorStop(0, 'rgba(56, 189, 248, 0.7)');
                 waterGrad.addColorStop(1, 'rgba(2, 132, 199, 0.85)');
                 ctx.fillStyle = waterGrad;
@@ -730,30 +749,31 @@
             var colors = ["#f59e0b", "#10b981", "#6366f1"];
 
             holeIndices.forEach(function(idx) {
-                var hy = t1_holeY[idx]; // cm dari dasar
-                var holePixelY = groundY - (hy * scaleY);
+                var hy = t1_holeY[idx]; // cm dari dasar botol
+                var holePixelY = tableY - (hy * scaleY);
                 var holeDepth = t1_waterLevel - hy; // h dalam cm
 
-                // Hitung Pancaran Air
+                // Hitung Pancaran Air dengan memperhitungkan ketinggian botol di atas meja
                 var xDist = 0;
                 if (holeDepth > 0 && t1_holes[idx]) {
                     isAnyFlowing = true;
-                    // Rumus Fisika Torricelli: x = 2 * sqrt(h * y)
-                    xDist = 2 * Math.sqrt(holeDepth * hy); // cm
-                    var xPixelDist = xDist * (scaleY * 0.8);
+                    // Total ketinggian lubang dari lantai (y_total = y_lubang + y_meja)
+                    var yTotalCm = hy + standHeightCm;
 
-                    // Gambar Parabola Pancaran Air
-                    ctx.beginPath();
-                    ctx.moveTo(originX + bottleWidth, holePixelY);
+                    // Rumus Fisika Torricelli: x = 2 * sqrt(h * y_total)
+                    xDist = 2 * Math.sqrt(holeDepth * yTotalCm); // cm
+                    var xPixelDist = xDist * pixelsPerCm;
 
-                    // Trajektori
+                    // Gambar Trajektori Parabola Pancaran Air
                     var startX = originX + bottleWidth;
                     var startY = holePixelY;
                     var endX = startX + xPixelDist;
                     var endY = groundY;
 
-                    // Quadratic curve untuk air memancar Parabola
-                    var controlX = startX + xPixelDist * 0.55;
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    // Titik kontrol kurva parabola persis dari kecepatan horizontal v
+                    var controlX = startX + (xPixelDist * 0.5);
                     var controlY = startY;
 
                     ctx.quadraticCurveTo(controlX, controlY, endX, endY);
@@ -761,7 +781,7 @@
                     ctx.lineWidth = 3.5;
                     ctx.stroke();
 
-                    // Percikan di tanah
+                    // Percikan di tanah tempat jatuhnya air
                     ctx.fillStyle = colors[idx - 1];
                     ctx.beginPath();
                     ctx.ellipse(endX, groundY, 6, 2, 0, 0, Math.PI * 2);
@@ -769,7 +789,7 @@
                 }
 
                 // Update UI Data
-                var hDisplay = holeDepth > 0 ? holeDepth.toFixed(1) + " cm" : "0 cm (Terbenam/Kering)";
+                var hDisplay = holeDepth > 0 ? holeDepth.toFixed(1) + " cm" : "0 cm (Kering)";
                 var xDisplay = (holeDepth > 0 && t1_holes[idx]) ? xDist.toFixed(1) + " cm" : "0 cm";
                 document.getElementById('p1-h' + idx).innerText = hDisplay;
                 document.getElementById('p1-x' + idx).innerText = xDisplay;
